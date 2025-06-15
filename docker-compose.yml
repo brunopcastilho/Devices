@@ -1,0 +1,155 @@
+name: testProject
+
+networks:
+  test-network:
+    driver: bridge
+
+services:
+  eurekaserver:
+    image: eurekaserver
+    profiles: ["infra"]
+    container_name: eurekaserver
+    ports:
+      - "8761:8761"
+    environment:
+      - EUREKA_DATACENTERINFO_NAME=eurekaserver
+      - EUREKA_INSTANCE_HOSTNAME=eurekaserver
+      - SPRING_SECURITY_USER_NAME=user
+      - SPRING_SECURITY_USER_PASSWORD=user
+      - EUREKA_CLIENT_REGISTER-WITH-EUREKA=false
+      - EUREKA_CLIENT_FETCH-REGISTRY=false
+      - EUREKA_INSTANCE_PREFER-IP-ADDRESS=false
+      - EUREKA_INSTANCE_HOSTNAME=eurekaserver
+      - SERVER_PORT=8761
+    networks:
+      - test-network
+
+  configserver:
+    image: configserver
+    profiles: ["infra"]
+    container_name: configserver
+    ports:
+      - "8888:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=native
+      - SPRING_CLOUD_CONFIG_SERVER_NATIVE_SEARCHLOCATIONS=file:/tmp/config
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eurekaserver:8761/eureka/
+      - EUREKA_INSTANCE_PREFER-IP-ADDRESS=true
+      - EUREKA_CLIENT_REGISTERWITHEUREKA=true
+      - EUREKA_CLIENT_FETCHREGISTRY=true
+    volumes:
+      - ./config:/tmp/config
+    networks:
+      - test-network
+    depends_on:
+      - eurekaserver
+
+
+  kafka:
+    image: bitnami/kafka:latest
+    container_name: kafka
+    profiles: ["infra"]
+    environment:
+      # Essential KRaft mode settings
+
+      - KAFKA_ENABLE_KRAFT=yes
+      - KAFKA_CFG_PROCESS_ROLES=controller,broker
+
+      # Controller configuration
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@kafka:9093
+
+      # Listeners configuration
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=PLAINTEXT
+
+      # Additional recommended settings
+      - KAFKA_CFG_NODE_ID=1
+      - ALLOW_PLAINTEXT_LISTENER=yes
+    ports:
+      - "9092:9092"  # Client port
+      - "9093:9093"  # Controller port (optional)
+    networks:
+      - test-network
+
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    profiles: ["infra"]
+    depends_on:
+      - kafka
+    ports:
+      - "9094:8080"
+    environment:
+      - KAFKA_CLUSTERS_0_NAME=local-kafka
+      - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka:9092
+      - KAFKA_CLUSTERS_0_ZOOKEEPER=  # Empty for KRaft mode
+      - KAFKA_CLUSTERS_0_KRAFT=true
+    networks:
+      - test-network
+
+  webserver:
+    image: webserver
+    container_name: webserver
+    profiles: ["app"]
+    ports:
+      - "8081:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_CLOUD_CONFIG_URI=http://configserver:8080
+    networks:
+      - test-network
+    depends_on:
+      - configserver
+      - topicconfiguration
+
+  topicconfiguration:
+    image: topicconfiguration
+    container_name: topicconfiguration
+    profiles: ["app"]
+    ports:
+      - "8082:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_CLOUD_CONFIG_URI=http://configserver:8080
+    networks:
+      - test-network
+    depends_on:
+      - configserver
+      - kafka
+
+  user-admin:
+    image: user-admin
+    container_name: user-admin
+    profiles: ["app"]
+    ports:
+      - "8083:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_CLOUD_CONFIG_URI=http://CONFIGSERVER:8080
+    networks:
+      - test-network
+    depends_on:
+      - configserver
+      - kafka
+      - eurekaserver
+
+  device-admin:
+    image: device-admin
+    container_name: device-admin
+    profiles: ["app"]
+    ports:
+      - "8084:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_CLOUD_CONFIG_URI=http://CONFIGSERVER:8080
+    networks:
+      - test-network
+    depends_on:
+      - configserver
+      - kafka
+      - eurekaserver
+

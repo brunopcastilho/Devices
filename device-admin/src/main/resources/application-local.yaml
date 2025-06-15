@@ -1,0 +1,17 @@
+spring:
+  config:
+    activate:
+      on-profile: local
+  cloud:
+    config:
+      uri: http://localhost:8888
+      enabled: true
+  application:
+    name: device-admin
+
+server:
+  port: 8084
+
+application:
+  topics:
+    user: device

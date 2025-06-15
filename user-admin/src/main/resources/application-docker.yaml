@@ -1,0 +1,10 @@
+spring:
+  config:
+    activate:
+      on-profile: docker
+  cloud:
+    config:
+      uri: http://configserver:8080
+      enabled: true
+  application:
+    name: user-admin

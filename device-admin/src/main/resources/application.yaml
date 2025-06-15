@@ -1,0 +1,7 @@
+spring:
+  cloud:
+    config:
+      uri: http://configserver:8080
+      enabled: true
+  application:
+    name: device-admin

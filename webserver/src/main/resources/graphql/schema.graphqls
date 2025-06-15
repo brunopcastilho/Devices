@@ -1,0 +1,49 @@
+type Query{
+    """
+    Get all users
+    """
+    getUsers: [User]
+
+    """
+    Get user by id
+    """
+    getUser(id: ID!): User
+
+    """
+    Get device by id
+    """
+    getDevice(deviceId: ID!): Device
+
+    """
+    Get all devices
+    """
+    getDevices : [Device]
+
+}
+
+type User {
+    id: ID!
+    name: String
+    creationUser: String
+    creationDate: String
+    updateDate: String
+
+}
+
+type Device {
+  id: ID!
+  name: String!
+  brand: String!
+  state: DeviceState!
+  creationTime: String
+  action: String
+  message: [String!]
+}
+
+enum DeviceState {
+  AVAILABLE
+  IN_USE
+  INACTIVE
+  IN_PROCESS
+}
+

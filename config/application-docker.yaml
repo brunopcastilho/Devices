@@ -1,0 +1,28 @@
+eureka:
+  client:
+    registerWithEureka: true
+    fetchRegistry: true
+    serviceUrl:
+      defaultZone: http://eurekaserver:8761/eureka/
+  instance:
+    prefer-ip-address: true
+
+
+spring:
+  kafka:
+    bootstrap-servers: kafka:9092
+    streams:
+      replication-factor: 1
+  security:
+    user:
+      name: user
+      password: user
+
+application:
+  topics:
+    user:
+      topic-name: users
+      store-name: users-state-store
+    device:
+      topic-name: devices
+      store-name: device-state-store

@@ -1,0 +1,24 @@
+spring:
+  config:
+    activate:
+      on-profile: local
+  cloud:
+    config:
+      uri: http://localhost:8888
+      enabled: true
+  application:
+    name: webserver
+  graphql:
+    graphiql:
+      enabled: true
+      path: /graphiql
+server:
+  port: 8081
+
+application:
+  topics:
+    user: user
+
+graphql:
+  servlet:
+    mapping=/graphql:
