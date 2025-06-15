@@ -1,8 +1,8 @@
 package com.bcastilho.example.device.admin.service;
 
+import com.bcastilho.example.device.admin.domain.DeviceSerdes;
 import com.example.model.Device;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.bcastilho.example.device.admin.domain.DeviceSerdes;
 import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.streams.KafkaStreams;
 import org.apache.kafka.streams.StoreQueryParameters;
@@ -33,17 +33,28 @@ public class DeviceAdminService {
     @Value("${application.topics.device.store-name}")
     String STORE_NAME;
     StoreBuilder<KeyValueStore<String, Device>> storeBuilder;
-    KTable<String, Device> kTable;
     SelfTriggerService selfTriggerService;
+    private KTable<String, Device> kTable;
 
-    public DeviceAdminService(StoreBuilder<KeyValueStore<String, Device>> storeBuilder, StreamsBuilderFactoryBean factoryBean, SelfTriggerService selfTriggerService) {
+
+    public DeviceAdminService(StoreBuilder<KeyValueStore<String, Device>> storeBuilder,
+                              StreamsBuilderFactoryBean factoryBean,
+                              SelfTriggerService selfTriggerService) {
         objectMapper = new ObjectMapper();
         this.storeBuilder = storeBuilder;
         this.factoryBean = factoryBean;
         this.selfTriggerService = selfTriggerService;
     }
 
-    private ReadOnlyKeyValueStore<String, Device> getStore() {
+    public KTable<String, Device> getKTable() {
+        return kTable;
+    }
+
+    public void setKTable(KTable<String, Device> kTable) {
+        this.kTable = kTable;
+    }
+
+    private ReadOnlyKeyValueStore<String, Device> getStore(KTable<String, Device> kTable) {
 
         // check if kstreams is initialized
         if (kTable == null) {
@@ -61,14 +72,12 @@ public class DeviceAdminService {
         }
 
         return store;
-
-
     }
 
     public KafkaStreams getKafkaStreams() {
         KafkaStreams kafkaStreams = factoryBean.getKafkaStreams();
         if (kafkaStreams == null) {
-            throw new IllegalStateException("KafkaStreams ainda não foi inicializado.");
+            throw new IllegalStateException("KafkaStreams has not been initialized.");
         }
         return kafkaStreams;
     }
@@ -86,7 +95,7 @@ public class DeviceAdminService {
 
 
         // Build processing pipeline
-        this.kTable = streamsBuilder.stream(
+        var kTable = streamsBuilder.stream(
                         INPUT_TOPIC,
                         Consumed.with(Serdes.String(), new DeviceSerdes())
                 )
@@ -113,31 +122,18 @@ public class DeviceAdminService {
                 })
                 .toTable(Materialized.as(STORE_NAME));
 
+        this.setKTable(kTable);
 
     }
 
     public Device getDevice(String key) {
-        // Check if ktable has been initialized
-        if (kTable == null) {
-            throw new IllegalStateException("KTable not initialized.");
-        }
-
-        // recover the name of the state store
-        String storeName = kTable.queryableStoreName();
-
-        StoreQueryParameters<ReadOnlyKeyValueStore<String, Device>> storeQueryParameters = StoreQueryParameters.fromNameAndType(STORE_NAME, QueryableStoreTypes.keyValueStore());
-        ReadOnlyKeyValueStore<String, Device> store = getKafkaStreams().store(storeQueryParameters);
-
-        if (store == null) {
-            throw new IllegalStateException("state store not found");
-        }
-
+        var store = getStore(getKTable());
         return store.get(key);
     }
 
     public List<Device> getDevices() {
 
-        var store = getStore();
+        var store = getStore(getKTable());
 
         List<Device> devices = new ArrayList<>();
         try (KeyValueIterator<String, Device> iterator = store.all()) {
@@ -152,7 +148,7 @@ public class DeviceAdminService {
 
     private List<Device> getDevicesByState(String state) {
 
-        var store = getStore();
+        var store = getStore(getKTable());
         List<Device> devices = new ArrayList<>();
         try (KeyValueIterator<String, Device> iterator = store.all()) {
             while (iterator.hasNext()) {
@@ -169,7 +165,7 @@ public class DeviceAdminService {
 
     public List<Device> getDevicesByBrand(List<String> brandNames) {
 
-        var store = getStore();
+        var store = getStore(getKTable());
 
         Set<String> brandSet = new HashSet<>(brandNames);
 
