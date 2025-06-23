@@ -24,6 +24,24 @@ services:
     networks:
       - test-network
 
+  postgres:
+    image: postgres:latest
+    profiles: ["infra"]
+    container_name: postgres_db
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
+      POSTGRES_DB: DEVICE
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+      - ./config/database:/docker-entrypoint-initdb.d/  # Mount init scripts
+    restart: unless-stopped
+    networks:
+      - test-network
+
+
   configserver:
     image: configserver
     profiles: ["infra"]
@@ -152,4 +170,21 @@ services:
       - configserver
       - kafka
       - eurekaserver
+
+  device-connector:
+    image: device-connector
+    container_name: device-connector
+    profiles: ["app"]
+    ports:
+      - "8086:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_CLOUD_CONFIG_URI=http://CONFIGSERVER:8080
+    networks:
+      - test-network
+    depends_on:
+      - configserver
+      - kafka
+      - eurekaserver
+      - postgres
 
